@@ -8,7 +8,7 @@ Sin dependencias externas salvo openpyxl. Determinístico: mismos datos -> mismo
 """
 import sys, os, json, re, hashlib, datetime, urllib.request, urllib.parse
 
-BUILD_VERSION = "3"  # subir si cambia la plantilla o las reglas de normalización
+BUILD_VERSION = "4"  # subir si cambia la plantilla o las reglas de normalización
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, "source.xlsx")
 OUT = os.path.join(HERE, "viajes_jorge_augusto.html")
@@ -33,14 +33,22 @@ def die(code, msg):
 
 
 def num(x):
-    # Días a veces quedaron como fecha de Excel (2 → 1900-01-02). El número de serie es el valor real.
-    if isinstance(x, (datetime.datetime, datetime.date, datetime.time)):
-        from openpyxl.utils.datetime import to_excel
-        return float(to_excel(x))
     try:
         return float(x)
     except (TypeError, ValueError):
         return None
+
+
+def leg_days(cell, cruise):
+    """Días de la planilla. Fuera de crucero se conserva la lectura histórica: una fecha no numérica vale 0.
+
+    En crucero, Excel a veces guardó el número de días como fecha (2 → 1900-01-02). Ahí el número de
+    serie es el valor real; sin eso el total de cruceros pierde esos días.
+    """
+    if cruise and isinstance(cell, (datetime.datetime, datetime.date, datetime.time)):
+        from openpyxl.utils.datetime import to_excel
+        return int(to_excel(cell))
+    return int(num(cell) or 0)
 
 
 def norm_boat(s):
@@ -264,7 +272,7 @@ def main():
             no_route.append(rn)
         rg = r[13].strftime("%Y%m%d") if hasattr(r[13], "strftime") else ""
         hotel = " / ".join(str(x).strip() for x in (r[11], r[12]) if x and str(x).strip())
-        legs.append([d.strftime("%Y%m%d"), mi_mode, line_name(r[3]), o, de, int(num(r[10]) or 0), int(num(r[14]) or 0),
+        legs.append([d.strftime("%Y%m%d"), mi_mode, line_name(r[3]), o, de, int(num(r[10]) or 0), leg_days(r[14], mi_mode == 1),
                      hotel, clean_comment(r[19]), rg, rn])
     if bad_modes:
         die(3, "ERROR medios de transporte desconocidos: " + "; ".join(f"{k} (filas {v})" for k, v in bad_modes.items()))
