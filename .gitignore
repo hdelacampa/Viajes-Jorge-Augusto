@@ -1,0 +1,7 @@
+state.json
+geocache.json
+source.xlsx
+viajes_jorge_augusto.html
+*.tmp
+*.xlsx
+__pycache__/
